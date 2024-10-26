@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>対人地図</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .container {
+            margin: 10px;
+        }
+        table {
+            margin: 10px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 5px;
+        }
+        .short-input {
+            width: 100px; 
+        }
+        #map-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            border: 2px solid #000;
+            margin: 20px auto;
+            border-radius: 50%;
+            background-color: #f0f0f0;
+        }
+        #user-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background-color: #FED364;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            z-index: 1;
+        }
+        .person-icon {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #82AE46;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            z-index: 2;
+        }
+        .button-container {
+            margin: 20px;
+        }
+        .line {
+            position: absolute;
+            width: 2px;
+            background-color: #000;
+            transform-origin: 0 0;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h4>私の人間関係をマップ化☺</h4>
+        <p>当てはまる人を入力しよう</p>
+        <table border="">
+            <tr><th>親しい人</th><th><input type="text" class="short-input" id="close1"></th><th><input type="text" class="short-input" id="close2"></th></tr>
+            <tr><th>よく話す人</th><th><input type="text" class="short-input" id="talk1"></th><th><input type="text" class="short-input" id="talk2"></th></tr>
+            <tr><th>影響を受ける人</th><th><input type="text" class="short-input" id="influence1"></th><th><input type="text" class="short-input" id="influence2"></th></tr>
+            <tr><th>大切な人</th><th><input type="text" class="short-input" id="important1"></th><th><input type="text" class="short-input" id="important2"></th></tr>
+            <tr><th>その他</th><th><input type="text" class="short-input" id="other1"></th><th><input type="text" class="short-input" id="other2"></th></tr>
+        </table>
+        <br>
+        <button onclick="saveMap()">アイコン化</button>
+        <br>
+        <div id="map-container">
+            <div id="user-center">自分</div>
+        </div>
+        
+        <div class="button-container">
+            <button onclick="saveMap()">保存</button>
+            <button onclick="arrangeInLine()">一直線に並べる</button>
+            <button><a href="hurikaeru.html">振り返る</a></button>
+        </div>
+    </div>
+
+    <script>
+        function saveMap() {
+            const ids = ['close1', 'close2', 'talk1', 'talk2', 'influence1', 'influence2', 'important1', 'important2', 'other1', 'other2'];
+            const names = ids.map(id => document.getElementById(id).value).filter(name => name);
+
+            const mapContainer = document.getElementById('map-container');
+            const userCenter = document.getElementById('user-center');
+            while (mapContainer.children.length > 1) {
+                mapContainer.removeChild(mapContainer.lastChild);
+            }
+
+            mapContainer.appendChild(userCenter);
+
+            names.forEach((name, index) => {
+                const angle = (360 / names.length) * index;
+                const radians = angle * (Math.PI / 180);
+                const radius = 100;
+                const x = Math.cos(radians) * radius + mapContainer.clientWidth / 2 - 20;
+                const y = Math.sin(radians) * radius + mapContainer.clientHeight / 2 - 20;
+
+                const personIcon = document.createElement('div');
+                personIcon.className = 'person-icon';
+                personIcon.style.left = `${x}px`;
+                personIcon.style.top = `${y}px`;
+                personIcon.textContent = name;
+
+                personIcon.draggable = true;
+                personIcon.addEventListener('dragstart', dragStart);
+                personIcon.addEventListener('dragend', dragEnd);
+
+                mapContainer.appendChild(personIcon);
+
+                drawLine(userCenter, personIcon);
+            });
+        }
+
+        function drawLine(startElem, endElem) {
+            const mapContainer = document.getElementById('map-container');
+
+            const startRect = startElem.getBoundingClientRect();
+            const endRect = endElem.getBoundingClientRect();
+            const mapRect = mapContainer.getBoundingClientRect();
+
+            const x1 = startRect.left + startRect.width / 2 - mapRect.left;
+            const y1 = startRect.top + startRect.height / 2 - mapRect.top;
+            const x2 = endRect.left + endRect.width / 2 - mapRect.left;
+            const y2 = endRect.top + endRect.height / 2 - mapRect.top;
+
+            const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+            const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+
+            const line = document.createElement('div');
+            line.className = 'line';
+            line.style.width = `${length}px`;
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.left = `${x1}px`;
+            line.style.top = `${y1}px`;
+
+            mapContainer.appendChild(line);
+        }
+
+        function dragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.id);
+            setTimeout(() => {
+                e.target.style.opacity = '0.5';
+            }, 0);
+        }
+
+        function dragEnd(e) {
+            e.target.style.opacity = '1';
+            const mapContainer = document.getElementById('map-container');
+            const rect = mapContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left - e.target.clientWidth / 2;
+            const y = e.clientY - rect.top - e.target.clientHeight / 2;
+            e.target.style.left = `${x}px`;
+            e.target.style.top = `${y}px`;
+
+            // 線を再描画
+            const userCenter = document.getElementById('user-center');
+            mapContainer.querySelectorAll('.line').forEach(line => line.remove());
+            document.querySelectorAll('.person-icon').forEach(icon => {
+                drawLine(userCenter, icon);
+            });
+        }
+
+        function arrangeInLine() {
+            const mapContainer = document.getElementById('map-container');
+            const userCenter = document.getElementById('user-center');
+            const userRect = userCenter.getBoundingClientRect();
+            const mapRect = mapContainer.getBoundingClientRect();
+            const icons = Array.from(document.querySelectorAll('.person-icon'));
+
+            const distances = icons.map(icon => {
+                const iconRect = icon.getBoundingClientRect();
+                const dx = (iconRect.left + iconRect.width / 2) - (userRect.left + userRect.width / 2);
+                const dy = (iconRect.top + iconRect.height / 2) - (userRect.top + userRect.height / 2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return { icon, distance };
+            });
+
+            distances.sort((a, b) => a.distance - b.distance);
+
+            const spacing = 50; 
+            distances.forEach((item, index) => {
+                item.icon.style.left = `${mapRect.left + (index * spacing) - mapRect.left}px`;
+                item.icon.style.top = `${mapRect.top + mapRect.height / 2 - item.icon.clientHeight / 2 - mapRect.top}px`;
+            });
+
+            mapContainer.querySelectorAll('.line').forEach(line => line.remove());
+            distances.forEach(item => drawLine(userCenter, item.icon));
+        }
+    </script>
+</body>
+</html>

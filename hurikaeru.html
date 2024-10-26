@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タイムライン</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+           
+            margin: 0;
+            padding: 20px;
+        }
+
+        .timeline {
+            position: relative;
+            width: 2px;
+            background-color: #888;
+            height: 100vh;
+            margin: 0 40px;
+        }
+
+        .timeline-event {
+            position: relative;
+            margin-bottom: 50px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        .timeline-event.right {
+            justify-content: flex-end;
+        }
+
+        .timeline-event::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #888;
+            border-radius: 50%;
+            left: -5px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .timeline-event.right::after {
+            left: auto;
+            right: -5px;
+        }
+
+        .bubble {
+            padding: 10px 20px;
+            border-radius: 10px;
+            background-color: #fed364;
+            color: #000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .timeline-event.right .bubble {
+            background-color: #d7aefb;
+        }
+
+        .timeline-event.left .bubble {
+            background-color: #ff77a9;
+        }
+
+        .age-label {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1 style = "margin-bottom: 50px;" class = "color1">
+        今までの経歴
+    </h1>
+    
+    
+    <div class="timeline">
+        <!-- 各イベントの構造 -->
+        <div class="timeline-event left" onclick="window.location.href='sakuseisuru.html'">
+            <div class="bubble">反抗期</div>
+            <div class="age-label">10歳</div>
+        </div>
+        <div class="timeline-event left" onclick="window.location.href='sakuseisuru.html'">
+            <div class="bubble">喧嘩</div>
+            <div class="age-label">15歳</div>
+        </div>
+        <div class="timeline-event left" onclick="window.location.href='sakuseisuru.html'">
+            <div class="bubble">成人</div>
+            <div class="age-label">20歳</div>
+        </div>
+    </div>
+    
+    <button onclick="window.location.href='index.html'">戻る</button>
+</body>
+</html>
