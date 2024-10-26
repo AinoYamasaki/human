@@ -19,19 +19,20 @@
         }
         th, td {
             padding: 5px;
+             font-size: 12px;
+              font-weight: normal; 
         }
         .short-input {
             width: 100px; 
         }
         #map-container {
-            position: relative;
-            width: 350px;
-            height: 350px;
-            border: 2px solid #000;
-            margin: 20px auto;
-            border-radius: 50%;
-            background-color: #f0f0f0;
-        }
+        position: relative;
+        width: 350px;
+        height: 350px;
+        margin: 20px auto;
+        border-radius: 50%;
+        
+    }
         #user-center {
             position: absolute;
             top: 50%;
@@ -39,21 +40,22 @@
             transform: translate(-50%, -50%);
             width: 50px;
             height: 50px;
-            background-color: #FED364;
-            color: white;
+            background-color: #F5F089;
+            color: #2e3851;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
             z-index: 1;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5); 
         }
         .person-icon {
             position: absolute;
             width: 40px;
             height: 40px;
-            background-color: #82AE46;
-            color: white;
+            background-color: #A7DBED;
+            color:  #2e3851;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -61,13 +63,14 @@
             cursor: pointer;
             user-select: none;
             z-index: 2;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5); 
         }
         .button-container {
             margin: 20px;
         }
         .line {
             position: absolute;
-            width: 2px;
+            width: 1px;
             background-color: #000;
             transform-origin: 0 0;
             z-index: 0;
@@ -86,31 +89,49 @@
             <tr><th>その他</th><th><input type="text" class="short-input" id="other1"></th><th><input type="text" class="short-input" id="other2"></th></tr>
         </table>
         <br>
-        <button onclick="saveMap()">アイコン化</button>
+        <button onclick="createMap()">アイコン化</button>
         <br>
         <div id="map-container">
             <div id="user-center">自分</div>
+            <svg id="line-container" width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
+            </svg>
         </div>
         
         <div class="button-container">
             <button onclick="saveMap()">保存</button>
-            <button onclick="arrangeInLine()">一直線に並べる</button>
-            <button><a href="hurikaeru.html">振り返る</a></button>
+            <button onclick="loadMap()">ロード</button></div>
+            <div>
+                
+            <button><a href="hurikaeru2.html">振り返る</a></button>
         </div>
     </div>
-
+           
     <script>
-        function saveMap() {
+        let activeIcon = null;
+        let offsetX = 0;
+        let offsetY = 0;
+         // Monaca Cloud DBに接続
+    var db = openDatabase("myDatabase", "1.0", "Human Relationships", 1024 * 1024);
+
+    // テーブル作成
+    db.transaction(function(tx) {
+        tx.executeSql('CREATE TABLE IF NOT EXISTS maps (id INTEGER PRIMARY KEY, name TEXT, x REAL, y REAL)');
+    });
+
+
+        function createMap() {
             const ids = ['close1', 'close2', 'talk1', 'talk2', 'influence1', 'influence2', 'important1', 'important2', 'other1', 'other2'];
             const names = ids.map(id => document.getElementById(id).value).filter(name => name);
 
             const mapContainer = document.getElementById('map-container');
             const userCenter = document.getElementById('user-center');
-            while (mapContainer.children.length > 1) {
+            const svg = document.getElementById('line-container');
+            
+            while (mapContainer.children.length > 2) {
                 mapContainer.removeChild(mapContainer.lastChild);
             }
 
-            mapContainer.appendChild(userCenter);
+            svg.innerHTML = '';
 
             names.forEach((name, index) => {
                 const angle = (360 / names.length) * index;
@@ -125,9 +146,14 @@
                 personIcon.style.top = `${y}px`;
                 personIcon.textContent = name;
 
-                personIcon.draggable = true;
-                personIcon.addEventListener('dragstart', dragStart);
-                personIcon.addEventListener('dragend', dragEnd);
+                personIcon.addEventListener('mousedown', dragStart);
+                personIcon.addEventListener('mousemove', dragMove);
+                personIcon.addEventListener('mouseup', dragEnd);
+                personIcon.addEventListener('mouseleave', dragEnd);
+
+                personIcon.addEventListener('touchstart', dragStart);
+                personIcon.addEventListener('touchmove', dragMove);
+                personIcon.addEventListener('touchend', dragEnd);
 
                 mapContainer.appendChild(personIcon);
 
@@ -135,80 +161,137 @@
             });
         }
 
+        
+monaca.cloud.DB.open({
+    "collection": "maps",
+    "apikey": "84817ab4-cf9b-4ee3-a4b4-5e2e894dea92" // 追記専用キー
+});
+         // データを保存する関数
+    function saveMap() {
+        db.transaction(function(tx) {
+            // 既存のデータをクリア
+            tx.executeSql('DELETE FROM maps');
+
+            // 各アイコンの位置情報を保存
+            document.querySelectorAll('.person-icon').forEach(icon => {
+                const name = icon.textContent;
+                const x = parseFloat(icon.style.left);
+                const y = parseFloat(icon.style.top);
+
+                tx.executeSql('INSERT INTO maps (name, x, y) VALUES (?, ?, ?)', [name, x, y], function(tx, res) {
+                    console.log("保存成功: " + name);
+                }, function(tx, err) {
+                    console.error("保存エラー: " + err.message);
+                });
+            });
+        });
+    }
+
+    // データをロードする関数
+    function loadMap() {
+        const mapContainer = document.getElementById('map-container');
+
+        // 既存のアイコンをクリア
+        while (mapContainer.children.length > 1) {
+            mapContainer.removeChild(mapContainer.lastChild);
+        }
+
+        // データベースからデータを取得して再描画
+        db.transaction(function(tx) {
+            tx.executeSql('SELECT * FROM maps', [], function(tx, results) {
+                for (let i = 0; i < results.rows.length; i++) {
+                    const row = results.rows.item(i);
+                    const name = row.name;
+                    const x = row.x;
+                    const y = row.y;
+
+                    const personIcon = document.createElement('div');
+                    personIcon.className = 'person-icon';
+                    personIcon.style.left = `${x}px`;
+                    personIcon.style.top = `${y}px`;
+                    personIcon.textContent = name;
+
+                    personIcon.addEventListener('mousedown', dragStart);
+                    personIcon.addEventListener('mousemove', dragMove);
+                    personIcon.addEventListener('mouseup', dragEnd);
+                    personIcon.addEventListener('mouseleave', dragEnd);
+
+                    personIcon.addEventListener('touchstart', dragStart);
+                    personIcon.addEventListener('touchmove', dragMove);
+                    personIcon.addEventListener('touchend', dragEnd);
+
+                    mapContainer.appendChild(personIcon);
+                }
+            });
+        });
+    }
+
         function drawLine(startElem, endElem) {
-            const mapContainer = document.getElementById('map-container');
+            const svg = document.getElementById('line-container');
 
             const startRect = startElem.getBoundingClientRect();
             const endRect = endElem.getBoundingClientRect();
-            const mapRect = mapContainer.getBoundingClientRect();
+            const mapRect = svg.getBoundingClientRect();
 
             const x1 = startRect.left + startRect.width / 2 - mapRect.left;
             const y1 = startRect.top + startRect.height / 2 - mapRect.top;
             const x2 = endRect.left + endRect.width / 2 - mapRect.left;
             const y2 = endRect.top + endRect.height / 2 - mapRect.top;
 
-            const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-            const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.setAttribute('stroke', 'black');
+            line.setAttribute('stroke-width', '1');
 
-            const line = document.createElement('div');
-            line.className = 'line';
-            line.style.width = `${length}px`;
-            line.style.transform = `rotate(${angle}deg)`;
-            line.style.left = `${x1}px`;
-            line.style.top = `${y1}px`;
-
-            mapContainer.appendChild(line);
+            svg.appendChild(line);
         }
 
-        function dragStart(e) {
-            e.dataTransfer.setData('text/plain', e.target.id);
-            setTimeout(() => {
-                e.target.style.opacity = '0.5';
-            }, 0);
-        }
-
-        function dragEnd(e) {
-            e.target.style.opacity = '1';
-            const mapContainer = document.getElementById('map-container');
-            const rect = mapContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left - e.target.clientWidth / 2;
-            const y = e.clientY - rect.top - e.target.clientHeight / 2;
-            e.target.style.left = `${x}px`;
-            e.target.style.top = `${y}px`;
-
-            // 線を再描画
+        function drawLines() {
             const userCenter = document.getElementById('user-center');
-            mapContainer.querySelectorAll('.line').forEach(line => line.remove());
+            const svg = document.getElementById('line-container');
+            svg.innerHTML = ''; // Clear existing lines
             document.querySelectorAll('.person-icon').forEach(icon => {
                 drawLine(userCenter, icon);
             });
         }
 
-        function arrangeInLine() {
+        function dragStart(e) {
+            if (e.type === "touchstart") {
+                e = e.touches[0];
+            }
+            activeIcon = e.target;
+            offsetX = e.clientX - activeIcon.getBoundingClientRect().left;
+            offsetY = e.clientY - activeIcon.getBoundingClientRect().top;
+            activeIcon.style.opacity = '0.5';
+        }
+
+        function dragMove(e) {
+            if (!activeIcon) return;
+            if (e.type === "touchmove") {
+                e.preventDefault();
+                e = e.touches[0];
+            }
             const mapContainer = document.getElementById('map-container');
-            const userCenter = document.getElementById('user-center');
-            const userRect = userCenter.getBoundingClientRect();
-            const mapRect = mapContainer.getBoundingClientRect();
-            const icons = Array.from(document.querySelectorAll('.person-icon'));
+            const rect = mapContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left - offsetX;
+            const y = e.clientY - rect.top - offsetY;
+            activeIcon.style.left = `${x}px`;
+            activeIcon.style.top = `${y}px`;
 
-            const distances = icons.map(icon => {
-                const iconRect = icon.getBoundingClientRect();
-                const dx = (iconRect.left + iconRect.width / 2) - (userRect.left + userRect.width / 2);
-                const dy = (iconRect.top + iconRect.height / 2) - (userRect.top + userRect.height / 2);
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                return { icon, distance };
-            });
+            drawLines(); // Update lines during drag
+        }
 
-            distances.sort((a, b) => a.distance - b.distance);
-
-            const spacing = 50; 
-            distances.forEach((item, index) => {
-                item.icon.style.left = `${mapRect.left + (index * spacing) - mapRect.left}px`;
-                item.icon.style.top = `${mapRect.top + mapRect.height / 2 - item.icon.clientHeight / 2 - mapRect.top}px`;
-            });
-
-            mapContainer.querySelectorAll('.line').forEach(line => line.remove());
-            distances.forEach(item => drawLine(userCenter, item.icon));
+        function dragEnd(e) {
+            if (e.type === "touchend") {
+                e = e.changedTouches[0];
+            }
+            if (activeIcon) {
+                activeIcon.style.opacity = '1';
+                activeIcon = null;
+            }
         }
     </script>
 </body>
